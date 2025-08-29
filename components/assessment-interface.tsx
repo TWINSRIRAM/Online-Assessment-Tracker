@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -26,6 +26,7 @@ const AssessmentInterface = () => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [studentInfo, setStudentInfo] = useState<{ id: string; name: string } | null>(null)
   const [examStarted, setExamStarted] = useState(false)
+  const hasSubmitted = useRef(false)
 
   const router = useRouter()
   const { toast } = useToast()
@@ -179,7 +180,8 @@ const AssessmentInterface = () => {
   }, [timeRemaining, examStarted, questions.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmitExam = useCallback(async () => {
-    if (!studentInfo) return
+    if (hasSubmitted.current || isSubmitting || !studentInfo) return
+    hasSubmitted.current = true
     setIsSubmitting(true)
     try {
       const response = await fetch("/api/assessment/submit", {
@@ -302,11 +304,7 @@ const AssessmentInterface = () => {
             </div>
             <div className="flex items-center gap-4">
               <Button
-                onClick={() => {
-                  if (window.confirm("Are you sure you want to submit your exam? This action cannot be undone.")) {
-                    handleSubmitExam()
-                  }
-                }}
+                onClick={handleSubmitExam}
                 className="flex items-center gap-2 px-6 py-2 bg-green-600 hover:bg-green-700"
                 disabled={isSubmitting}
               >
@@ -445,12 +443,9 @@ const AssessmentInterface = () => {
               )}
               {currentQuestionIndex === questions.length - 1 && (
                 <Button
-                  onClick={() => {
-                    if (window.confirm("Are you sure you want to submit your exam? This action cannot be undone.")) {
-                      handleSubmitExam()
-                    }
-                  }}
+                  onClick={handleSubmitExam}
                   className="flex items-center gap-2 px-6 py-2 bg-green-600 hover:bg-green-700"
+                  disabled={isSubmitting}
                 >
                   Submit Exam
                 </Button>
