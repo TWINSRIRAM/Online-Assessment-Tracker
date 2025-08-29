@@ -1,48 +1,88 @@
 import type { NextApiHandler, NextApiRequest, NextApiResponse } from "next"
 
-// Keep allowed hashes in an array so it can be updated later.
+// Allow static fallback values here if you need to hard-code any hashes.
+// Prefer using env vars in production.
 export const ALLOWED_SEB_CONFIG_KEY_HASHES: string[] = [
-  // TODO: add your real SEB Config Key Hash values here (exact strings)
   // "YOUR_CONFIG_KEY_HASH_1",
   // "YOUR_CONFIG_KEY_HASH_2",
 ]
 
-// Internal helper to safely read the SEB hash from headers.
-// Node/Next lower-cases header names, so we primarily check the lower-case variant.
-function getSebHashFromHeaders(req: NextApiRequest): string | null {
-  const fromStd = req.headers["x-safeexambrowser-configkeyhash"]
-  const fromAlt = req.headers["x-safe-exam-browser-configkeyhash"] // in case some proxies mutate the name
-
-  const raw = (Array.isArray(fromStd) ? fromStd[0] : fromStd) ?? (Array.isArray(fromAlt) ? fromAlt[0] : fromAlt)
-  if (!raw || typeof raw !== "string") return null
-  return raw.trim()
+// Parse comma-separated env vars into arrays
+function parseList(env?: string | undefined) {
+  return (env || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
 }
 
-// A small reusable validator if you prefer to call it imperatively inside a handler.
+const ENV_ALLOWED_HASHES = parseList(process.env.SEB_ALLOWED_CONFIG_KEY_HASHES)
+const ENV_ALLOWED_BEKS = parseList(process.env.SEB_ALLOWED_BROWSER_EXAM_KEYS)
+
+// Read a header safely (Next lowercases headers)
+function readHeader(req: NextApiRequest, name: string) {
+  const v = req.headers[name.toLowerCase()] as string | string[] | undefined
+  const raw = Array.isArray(v) ? v[0] : v
+  return typeof raw === "string" ? raw.trim() : null
+}
+
+function getSebConfigKeyHash(req: NextApiRequest) {
+  return readHeader(req, "x-safeexambrowser-configkeyhash") || readHeader(req, "x-safe-exam-browser-configkeyhash")
+}
+
+function getSebBrowserExamKey(req: NextApiRequest) {
+  return readHeader(req, "x-safeexambrowser-browserexamkey") || readHeader(req, "x-safe-exam-browser-browserexamkey")
+}
+
+// Resolve the allowlists: env takes precedence, then hard-coded fallback.
+function getAllowedHashes() {
+  return ENV_ALLOWED_HASHES.length > 0 ? ENV_ALLOWED_HASHES : ALLOWED_SEB_CONFIG_KEY_HASHES
+}
+function getAllowedBEKs() {
+  return ENV_ALLOWED_BEKS
+}
+
+// Validate function (imperative usage)
 export function validateSEB(
   req: NextApiRequest,
   res: NextApiResponse,
-  allowed: string[] = ALLOWED_SEB_CONFIG_KEY_HASHES,
+  opts?: { allowedHashes?: string[]; allowedBEKs?: string[] },
 ): boolean {
-  const hash = getSebHashFromHeaders(req)
-  const ok = !!hash && allowed.includes(hash)
-  if (!ok) {
+  const allowedHashes = opts?.allowedHashes ?? getAllowedHashes()
+  const allowedBEKs = opts?.allowedBEKs ?? getAllowedBEKs()
+
+  const hash = getSebConfigKeyHash(req)
+  const bek = getSebBrowserExamKey(req)
+
+  const hashOk = !!hash && allowedHashes.includes(hash)
+  const bekRequired = allowedBEKs.length > 0
+  const bekOk = !bekRequired || (!!bek && allowedBEKs.includes(bek))
+
+  if (!hashOk || !bekOk) {
     res.status(403).json({ error: "Access Denied: Please use Safe Exam Browser" })
     return false
   }
   return true
 }
 
-// Recommended: wrap any Next.js API route with this HOF to enforce SEB protection.
-export function withSEBProtection(handler: NextApiHandler, options?: { allowedHashes?: string[] }): NextApiHandler {
-  const allowed = options?.allowedHashes ?? ALLOWED_SEB_CONFIG_KEY_HASHES
+// Wrapper (preferred)
+export function withSEBProtection(
+  handler: NextApiHandler,
+  options?: { allowedHashes?: string[]; allowedBEKs?: string[] },
+): NextApiHandler {
+  const allowedHashes = options?.allowedHashes ?? getAllowedHashes()
+  const allowedBEKs = options?.allowedBEKs ?? getAllowedBEKs()
 
   return async function sebProtectedHandler(req: NextApiRequest, res: NextApiResponse) {
-    const hash = getSebHashFromHeaders(req)
-    if (!hash || !allowed.includes(hash)) {
+    const hash = getSebConfigKeyHash(req)
+    const bek = getSebBrowserExamKey(req)
+
+    const hashOk = !!hash && allowedHashes.includes(hash)
+    const bekRequired = allowedBEKs.length > 0
+    const bekOk = !bekRequired || (!!bek && allowedBEKs.includes(bek))
+
+    if (!hashOk || !bekOk) {
       return res.status(403).json({ error: "Access Denied: Please use Safe Exam Browser" })
     }
-    // Proceed as usual
     return handler(req, res)
   }
 }
