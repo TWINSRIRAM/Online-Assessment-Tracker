@@ -54,6 +54,7 @@ export function FullscreenController({
     setIsFullscreen(newIsFullscreen)
     onFullscreenChange?.(newIsFullscreen)
 
+    
     // If user exits fullscreen while protection is enabled
     if (!newIsFullscreen && enabled && preventExit) {
       const newAttempts = exitAttempts + 1
