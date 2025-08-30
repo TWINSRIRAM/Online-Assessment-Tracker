@@ -122,16 +122,6 @@ export default function ResultsPage() {
                 View Wrong Answers ({result.wrongAnswers})
               </Button>
             )}
-            <Button
-              onClick={() => {
-                console.log("[v0] Printing results")
-                window.print()
-              }}
-              variant="outline"
-              className="w-full"
-            >
-              Print Results
-            </Button>
           </div>
         </CardContent>
       </Card>

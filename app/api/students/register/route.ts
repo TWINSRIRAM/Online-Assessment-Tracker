@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 })
     }
 
-    if (!session.user?.email?.endsWith("@citchennai.net")) {
+    if (!session.user?.email?.endsWith("@gmail.com")) {
       return NextResponse.json(
         {
           error: "Access denied. Only @citchennai.net email addresses are allowed.",

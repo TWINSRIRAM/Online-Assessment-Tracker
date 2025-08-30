@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
       (examType === "admin" &&
         studentEmail &&
         studentEmail !== "admin@exam.system" &&
-        studentEmail.endsWith("@citchennai.net"))
+        studentEmail.endsWith("@gmail.com"))
 
     if (studentEmail && shouldUpdateSheet) {
       try {

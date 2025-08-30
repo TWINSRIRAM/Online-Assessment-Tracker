@@ -13,7 +13,7 @@ export const authOptions: NextAuthOptions = {
     async signIn({ user, account, profile }) {
       if (account?.provider === "google") {
         const email = user.email || profile?.email
-        if (!email?.endsWith("@citchennai.net")) {
+        if (!email?.endsWith("@gmail.com")) {
           console.log("[v0] Access denied for email:", email)
           return false
         }
